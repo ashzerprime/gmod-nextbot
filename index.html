@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nextbot Parking 3D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #000;
+        }
+        #gameCanvas {
+            display: block;
+            cursor: none;
+        }
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #healthBar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 200px;
+            height: 30px;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #fff;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #healthFill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff0000, #00ff00);
+            transition: width 0.3s;
+        }
+        #healthText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+        }
+        #menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: #fff;
+            pointer-events: all;
+        }
+        .spawn-btn {
+            display: block;
+            width: 150px;
+            margin: 10px 0;
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .spawn-btn:hover {
+            background: #45a049;
+        }
+        .spawn-btn:active {
+            transform: scale(0.95);
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 40px;
+            border-radius: 10px;
+            color: #fff;
+            text-align: center;
+            display: none;
+            pointer-events: all;
+        }
+        #gameOver h1 {
+            font-size: 48px;
+            color: #ff0000;
+            margin-bottom: 20px;
+        }
+        #restartBtn {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        #restartBtn:hover {
+            background: #45a049;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.5);
+        }
+        #crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 9px;
+        }
+        #crosshair::after {
+            width: 20px;
+            height: 2px;
+            top: 9px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <div id="healthBar">
+            <div id="healthFill"></div>
+            <div id="healthText">100</div>
+        </div>
+        <div id="menu">
+            <h3 style="margin-bottom: 15px;">SPAWN NEXTBOTS</h3>
+            <button class="spawn-btn" onclick="spawnNextbot('speed')">🏃 SPEED</button>
+            <button class="spawn-btn" onclick="spawnNextbot('medium')">🚶 MEDIUM</button>
+            <button class="spawn-btn" onclick="spawnNextbot('low')">🐌 LOW</button>
+        </div>
+        <div id="crosshair"></div>
+        <div id="gameOver">
+            <h1>GAME OVER</h1>
+            <p style="font-size: 24px;">Vous avez été attrapé!</p>
+            <button id="restartBtn" onclick="restartGame()">RECOMMENCER</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Configuration du jeu
+        const game = {
+            player: {
+                x: 0,
+                y: 1.7,
+                z: 0,
+                vx: 0,
+                vy: 0,
+                vz: 0,
+                rotY: 0,
+                health: 100,
+                isDead: false,
+                isJumping: false
+            },
+            camera: {
+                pitch: 0,
+                yaw: 0
+            },
+            keys: {},
+            mouseMovementX: 0,
+            mouseMovementY: 0,
+            nextbots: [],
+            gravity: -0.02,
+            jumpForce: 0.4,
+            moveSpeed: 0.15
+        };
+
+        // Nextbot image (sprite 2D)
+        const nextbotSprite = new Image();
+        nextbotSprite.src = 'data:image/svg+xml,' + encodeURIComponent(`
+            <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" fill="#ff0000"/>
+                <circle cx="30" cy="35" r="10" fill="#fff"/>
+                <circle cx="70" cy="35" r="10" fill="#fff"/>
+                <circle cx="30" cy="35" r="5" fill="#000"/>
+                <circle cx="70" cy="35" r="5" fill="#000"/>
+                <path d="M 25 60 Q 50 75 75 60" stroke="#000" stroke-width="3" fill="none"/>
+            </svg>
+        `);
+
+        // Gestion des événements
+        document.addEventListener('keydown', (e) => {
+            game.keys[e.key.toLowerCase()] = true;
+            if (e.code === 'Space' && !game.player.isJumping && !game.player.isDead) {
+                game.player.vy = game.jumpForce;
+                game.player.isJumping = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            game.keys[e.key.toLowerCase()] = false;
+        });
+
+        canvas.addEventListener('click', () => {
+            canvas.requestPointerLock();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === canvas) {
+                game.camera.yaw += e.movementX * 0.002;
+                game.camera.pitch -= e.movementY * 0.002;
+                game.camera.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, game.camera.pitch));
+            }
+        });
+
+        // Fonction pour spawn les nextbots
+        function spawnNextbot(type) {
+            if (game.player.isDead) return;
+            
+            const speeds = {
+                'speed': 0.12,
+                'medium': 0.06,
+                'low': 0.03
+            };
+
+            const angles = [0, Math.PI/2, Math.PI, -Math.PI/2];
+            const angle = angles[Math.floor(Math.random() * angles.length)];
+            const distance = 20 + Math.random() * 10;
+            
+            game.nextbots.push({
+                x: game.player.x + Math.cos(angle) * distance,
+                y: game.player.y,
+                z: game.player.z + Math.sin(angle) * distance,
+                speed: speeds[type],
+                type: type
+            });
+        }
+
+        // Collision avec le sol (parking)
+        function getFloorHeight(x, z) {
+            const floorLevel = Math.floor((x + 50) / 15) % 3;
+            return -floorLevel * 4;
+        }
+
+        // Collision avec nextbot
+        function checkNextbotCollision() {
+            for (let bot of game.nextbots) {
+                const dx = game.player.x - bot.x;
+                const dz = game.player.z - bot.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+                
+                if (dist < 1.5) {
+                    game.player.health = 0;
+                    updateHealth();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Mise à jour de la santé
+        function updateHealth() {
+            document.getElementById('healthFill').style.width = game.player.health + '%';
+            document.getElementById('healthText').textContent = Math.floor(game.player.health);
+            
+            if (game.player.health <= 0 && !game.player.isDead) {
+                game.player.isDead = true;
+                document.getElementById('gameOver').style.display = 'block';
+            }
+        }
+
+        // Redémarrage du jeu
+        function restartGame() {
+            game.player = {
+                x: 0,
+                y: 1.7,
+                z: 0,
+                vx: 0,
+                vy: 0,
+                vz: 0,
+                rotY: 0,
+                health: 100,
+                isDead: false,
+                isJumping: false
+            };
+            game.nextbots = [];
+            game.camera.pitch = 0;
+            game.camera.yaw = 0;
+            document.getElementById('gameOver').style.display = 'none';
+            updateHealth();
+        }
+
+        // Boucle de jeu
+        function gameLoop() {
+            // Clear
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!game.player.isDead) {
+                // Mouvement du joueur
+                const moveX = (game.keys['d'] ? 1 : 0) - (game.keys['q'] ? 1 : 0);
+                const moveZ = (game.keys['s'] ? 1 : 0) - (game.keys['z'] ? 1 : 0);
+
+                if (moveX !== 0 || moveZ !== 0) {
+                    const angle = Math.atan2(moveZ, moveX) + game.camera.yaw;
+                    game.player.vx = Math.cos(angle) * game.moveSpeed;
+                    game.player.vz = Math.sin(angle) * game.moveSpeed;
+                } else {
+                    game.player.vx *= 0.8;
+                    game.player.vz *= 0.8;
+                }
+
+                // Gravité
+                game.player.vy += game.gravity;
+                
+                // Mise à jour position
+                game.player.x += game.player.vx;
+                game.player.y += game.player.vy;
+                game.player.z += game.player.vz;
+
+                // Collision sol
+                const floorY = getFloorHeight(game.player.x, game.player.z) + 1.7;
+                if (game.player.y <= floorY) {
+                    game.player.y = floorY;
+                    game.player.vy = 0;
+                    game.player.isJumping = false;
+                }
+
+                // Mise à jour nextbots
+                for (let bot of game.nextbots) {
+                    const dx = game.player.x - bot.x;
+                    const dz = game.player.z - bot.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    
+                    if (dist > 0.1) {
+                        bot.x += (dx / dist) * bot.speed;
+                        bot.z += (dz / dist) * bot.speed;
+                    }
+                    
+                    bot.y = getFloorHeight(bot.x, bot.z) + 1.7;
+                }
+
+                checkNextbotCollision();
+            }
+
+            // Rendu 3D
+            render3D();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function render3D() {
+            const fov = Math.PI / 3;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Dessiner le parking (murs et sol)
+            drawParking();
+
+            // Dessiner les nextbots
+            const sortedBots = [...game.nextbots].sort((a, b) => {
+                const distA = Math.hypot(a.x - game.player.x, a.z - game.player.z);
+                const distB = Math.hypot(b.x - game.player.x, b.z - game.player.z);
+                return distB - distA;
+            });
+
+            for (let bot of sortedBots) {
+                drawNextbot(bot, centerX, centerY, fov);
+            }
+        }
+
+        function drawParking() {
+            // Sol avec grille
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            
+            for (let i = -30; i < 30; i++) {
+                const pts1 = project3D(i * 5, 0, -100);
+                const pts2 = project3D(i * 5, 0, 100);
+                const pts3 = project3D(-100, 0, i * 5);
+                const pts4 = project3D(100, 0, i * 5);
+                
+                if (pts1 && pts2) {
+                    ctx.beginPath();
+                    ctx.moveTo(pts1.x, pts1.y);
+                    ctx.lineTo(pts2.x, pts2.y);
+                    ctx.stroke();
+                }
+                
+                if (pts3 && pts4) {
+                    ctx.beginPath();
+                    ctx.moveTo(pts3.x, pts3.y);
+                    ctx.lineTo(pts4.x, pts4.y);
+                    ctx.stroke();
+                }
+            }
+
+            // Piliers du parking
+            ctx.fillStyle = '#555';
+            for (let x = -40; x <= 40; x += 20) {
+                for (let z = -40; z <= 40; z += 20) {
+                    drawBox(x, -2, z, 1, 5, 1);
+                }
+            }
+        }
+
+        function drawBox(x, y, z, w, h, d) {
+            const corners = [
+                [x-w/2, y, z-d/2], [x+w/2, y, z-d/2],
+                [x+w/2, y, z+d/2], [x-w/2, y, z+d/2],
+                [x-w/2, y+h, z-d/2], [x+w/2, y+h, z-d/2],
+                [x+w/2, y+h, z+d/2], [x-w/2, y+h, z+d/2]
+            ];
+
+            const projected = corners.map(c => project3D(c[0], c[1], c[2]));
+            
+            if (projected.every(p => p)) {
+                ctx.beginPath();
+                ctx.moveTo(projected[0].x, projected[0].y);
+                for (let i = 1; i < 4; i++) {
+                    ctx.lineTo(projected[i].x, projected[i].y);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        function drawNextbot(bot, centerX, centerY, fov) {
+            const dx = bot.x - game.player.x;
+            const dy = bot.y - game.player.y;
+            const dz = bot.z - game.player.z;
+
+            // Rotation caméra
+            const cosYaw = Math.cos(-game.camera.yaw);
+            const sinYaw = Math.sin(-game.camera.yaw);
+            const rx = dx * cosYaw - dz * sinYaw;
+            const rz = dx * sinYaw + dz * cosYaw;
+
+            if (rz <= 0.1) return;
+
+            const cosPitch = Math.cos(-game.camera.pitch);
+            const sinPitch = Math.sin(-game.camera.pitch);
+            const ry = dy * cosPitch - rz * sinPitch;
+            const finalZ = dy * sinPitch + rz * cosPitch;
+
+            const scale = (canvas.width / 2) / Math.tan(fov / 2) / finalZ;
+            const screenX = centerX + rx * scale;
+            const screenY = centerY - ry * scale;
+
+            const size = 80 * scale;
+
+            // Dessiner le sprite du nextbot
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, 10 / finalZ);
+            ctx.drawImage(nextbotSprite, screenX - size / 2, screenY - size, size, size);
+            ctx.restore();
+        }
+
+        function project3D(x, y, z) {
+            const dx = x - game.player.x;
+            const dy = y - game.player.y;
+            const dz = z - game.player.z;
+
+            const cosYaw = Math.cos(-game.camera.yaw);
+            const sinYaw = Math.sin(-game.camera.yaw);
+            const rx = dx * cosYaw - dz * sinYaw;
+            const rz = dx * sinYaw + dz * cosYaw;
+
+            if (rz <= 0.1) return null;
+
+            const cosPitch = Math.cos(-game.camera.pitch);
+            const sinPitch = Math.sin(-game.camera.pitch);
+            const ry = dy * cosPitch - rz * sinPitch;
+
+            const fov = Math.PI / 3;
+            const scale = (canvas.width / 2) / Math.tan(fov / 2) / rz;
+            
+            return {
+                x: canvas.width / 2 + rx * scale,
+                y: canvas.height / 2 - ry * scale
+            };
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Démarrage du jeu
+        gameLoop();
+    </script>
+</body>
+</html>
