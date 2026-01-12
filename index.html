@@ -152,7 +152,7 @@
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="ui">
-        <div id="floorInfo">Étage: 1</div>
+        <div id="floorInfo">Étage: 0</div>
         <div id="healthBar">
             <div id="healthFill"></div>
             <div id="healthText">100</div>
@@ -178,11 +178,13 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Configuration du jeu
+        const FLOOR_HEIGHT = 5;
+        const NUM_FLOORS = 3;
+
         const game = {
             player: {
                 x: 0,
-                y: 0.3,
+                y: 1.7,
                 z: 0,
                 vx: 0,
                 vy: 0,
@@ -192,7 +194,7 @@
                 health: 100,
                 isDead: false,
                 isJumping: false,
-                floor: 0
+                currentFloor: 0
             },
             camera: {
                 pitch: 0,
@@ -200,61 +202,47 @@
             },
             keys: {},
             nextbots: [],
-            gravity: -0.015,
-            jumpForce: 0.3,
-            moveSpeed: 0.1
+            gravity: -0.02,
+            jumpForce: 0.35,
+            moveSpeed: 0.12
         };
 
-        // Structure du parking (3 étages)
+        // Structure du parking
         const parkingStructure = {
-            floorHeight: 4,
-            floors: [
-                { y: 0, name: "Étage -2" },
-                { y: 4, name: "Étage -1" },
-                { y: 8, name: "Étage 0" }
-            ],
-            walls: [
-                // Murs extérieurs
-                {x1: -25, z1: -25, x2: 25, z2: -25, h: 12},
-                {x1: 25, z1: -25, x2: 25, z2: 25, h: 12},
-                {x1: 25, z1: 25, x2: -25, z2: 25, h: 12},
-                {x1: -25, z1: 25, x2: -25, z2: -25, h: 12}
-            ],
             pillars: [],
             stairs: [
-                // Escaliers entre étages
-                {x: 18, z: 18, floor: 0, dir: 1}, // Sol 0 -> 1
-                {x: 18, z: 18, floor: 1, dir: 1}, // Sol 1 -> 2
-                {x: -18, z: -18, floor: 0, dir: -1},
-                {x: -18, z: -18, floor: 1, dir: -1}
+                // Escaliers entre TOUS les étages
+                {x: 18, zStart: 16, zEnd: 21, width: 4, fromFloor: 0, toFloor: 1},
+                {x: 18, zStart: 16, zEnd: 21, width: 4, fromFloor: 1, toFloor: 2},
+                {x: -18, zStart: -21, zEnd: -16, width: 4, fromFloor: 0, toFloor: 1},
+                {x: -18, zStart: -21, zEnd: -16, width: 4, fromFloor: 1, toFloor: 2}
             ]
         };
 
         // Générer les piliers
-        for (let x = -20; x <= 20; x += 10) {
-            for (let z = -20; z <= 20; z += 10) {
-                if (Math.abs(x) > 5 || Math.abs(z) > 5) {
-                    parkingStructure.pillars.push({x, z, w: 0.8, d: 0.8});
+        for (let x = -20; x <= 20; x += 8) {
+            for (let z = -20; z <= 20; z += 8) {
+                if (Math.abs(x) > 3 || Math.abs(z) > 3) {
+                    parkingStructure.pillars.push({x, z, w: 0.6, d: 0.6});
                 }
             }
         }
 
-        // Image du nextbot (tête effrayante)
+        // Image du nextbot
         const nextbotSprite = new Image();
         nextbotSprite.src = 'data:image/svg+xml,' + encodeURIComponent(`
-            <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
-                <ellipse cx="50" cy="50" rx="45" ry="50" fill="#1a1a1a"/>
-                <ellipse cx="35" cy="40" rx="8" ry="12" fill="#fff"/>
-                <ellipse cx="65" cy="40" rx="8" ry="12" fill="#fff"/>
-                <circle cx="35" cy="40" r="5" fill="#000"/>
-                <circle cx="65" cy="40" r="5" fill="#000"/>
-                <path d="M 30 65 Q 50 75 70 65" stroke="#000" stroke-width="4" fill="none"/>
-                <ellipse cx="35" cy="38" rx="2" ry="3" fill="#fff" opacity="0.6"/>
-                <ellipse cx="65" cy="38" rx="2" ry="3" fill="#fff" opacity="0.6"/>
+            <svg width="100" height="120" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="50" cy="60" rx="40" ry="55" fill="#0d0d0d"/>
+                <ellipse cx="35" cy="50" rx="9" ry="14" fill="#ffffff"/>
+                <ellipse cx="65" cy="50" rx="9" ry="14" fill="#ffffff"/>
+                <circle cx="35" cy="50" r="6" fill="#000000"/>
+                <circle cx="65" cy="50" r="6" fill="#000000"/>
+                <path d="M 28 75 Q 50 88 72 75" stroke="#1a1a1a" stroke-width="5" fill="none"/>
+                <ellipse cx="32" cy="47" rx="3" ry="4" fill="#ffffff" opacity="0.5"/>
+                <ellipse cx="62" cy="47" rx="3" ry="4" fill="#ffffff" opacity="0.5"/>
             </svg>
         `);
 
-        // Gestion des événements
         document.addEventListener('keydown', (e) => {
             game.keys[e.key.toLowerCase()] = true;
             if (e.code === 'Space' && !game.player.isJumping && !game.player.isDead) {
@@ -279,37 +267,35 @@
             }
         });
 
-        // Fonction pour spawn les nextbots
         function spawnNextbot(type) {
             if (game.player.isDead) return;
             
             const speeds = {
-                'speed': 0.08,
-                'medium': 0.04,
-                'low': 0.02
+                'speed': 0.1,
+                'medium': 0.06,
+                'low': 0.03
             };
 
             const angle = Math.random() * Math.PI * 2;
-            const distance = 15 + Math.random() * 10;
+            const distance = 15 + Math.random() * 8;
             
             game.nextbots.push({
                 x: game.player.x + Math.cos(angle) * distance,
-                y: game.player.y,
+                y: game.player.currentFloor * FLOOR_HEIGHT + 1.7,
                 z: game.player.z + Math.sin(angle) * distance,
                 speed: speeds[type],
                 type: type,
-                floor: game.player.floor
+                currentFloor: game.player.currentFloor,
+                targetFloor: game.player.currentFloor
             });
         }
 
-        // Collision avec les murs
         function checkWallCollision(x, z) {
-            // Murs extérieurs
             if (x < -24 || x > 24 || z < -24 || z > 24) return true;
             
-            // Piliers
             for (let pillar of parkingStructure.pillars) {
-                if (Math.abs(x - pillar.x) < pillar.w && Math.abs(z - pillar.z) < pillar.d) {
+                if (Math.abs(x - pillar.x) < pillar.w + game.player.radius && 
+                    Math.abs(z - pillar.z) < pillar.d + game.player.radius) {
                     return true;
                 }
             }
@@ -317,25 +303,34 @@
             return false;
         }
 
-        // Vérifier si sur un escalier
-        function checkStairs(x, y, z) {
+        function isOnStairs(x, z, floor) {
             for (let stair of parkingStructure.stairs) {
-                const dx = Math.abs(x - stair.x);
-                const dz = Math.abs(z - stair.z);
-                const floorY = stair.floor * parkingStructure.floorHeight;
+                const minZ = Math.min(stair.zStart, stair.zEnd);
+                const maxZ = Math.max(stair.zStart, stair.zEnd);
                 
-                if (dx < 2 && dz < 3 && y >= floorY && y <= floorY + parkingStructure.floorHeight) {
-                    // Sur l'escalier
-                    const progress = (z - (stair.z - 3 * stair.dir)) / (6 * stair.dir);
-                    if (progress >= 0 && progress <= 1) {
-                        return floorY + progress * parkingStructure.floorHeight;
-                    }
+                if (Math.abs(x - stair.x) < stair.width / 2 && 
+                    z >= minZ && z <= maxZ &&
+                    (floor === stair.fromFloor || floor === stair.toFloor)) {
+                    return stair;
                 }
             }
             return null;
         }
 
-        // Collision avec nextbot
+        function getStairHeight(x, z, floor) {
+            const stair = isOnStairs(x, z, floor);
+            if (!stair) return null;
+
+            const minZ = Math.min(stair.zStart, stair.zEnd);
+            const maxZ = Math.max(stair.zStart, stair.zEnd);
+            const progress = (z - minZ) / (maxZ - minZ);
+            
+            const baseY = stair.fromFloor * FLOOR_HEIGHT;
+            const targetY = stair.toFloor * FLOOR_HEIGHT;
+            
+            return baseY + progress * (targetY - baseY) + 1.7;
+        }
+
         function checkNextbotCollision() {
             for (let bot of game.nextbots) {
                 const dx = game.player.x - bot.x;
@@ -343,7 +338,7 @@
                 const dz = game.player.z - bot.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
                 
-                if (dist < 0.8 && Math.abs(dy) < 1.5) {
+                if (dist < 1 && Math.abs(dy) < 1.5) {
                     game.player.health = 0;
                     updateHealth();
                     return true;
@@ -352,7 +347,6 @@
             return false;
         }
 
-        // Mise à jour de la santé
         function updateHealth() {
             document.getElementById('healthFill').style.width = game.player.health + '%';
             document.getElementById('healthText').textContent = Math.floor(game.player.health);
@@ -363,11 +357,10 @@
             }
         }
 
-        // Redémarrage du jeu
         function restartGame() {
             game.player = {
                 x: 0,
-                y: 0.3,
+                y: 1.7,
                 z: 0,
                 vx: 0,
                 vy: 0,
@@ -377,7 +370,7 @@
                 health: 100,
                 isDead: false,
                 isJumping: false,
-                floor: 0
+                currentFloor: 0
             };
             game.nextbots = [];
             game.camera.pitch = 0;
@@ -386,26 +379,41 @@
             updateHealth();
         }
 
-        // Boucle de jeu
+        function findNearestStairs(x, z, fromFloor, toFloor) {
+            let nearest = null;
+            let minDist = Infinity;
+
+            for (let stair of parkingStructure.stairs) {
+                if (stair.fromFloor === fromFloor && stair.toFloor === toFloor) {
+                    const centerZ = (stair.zStart + stair.zEnd) / 2;
+                    const dist = Math.hypot(x - stair.x, z - centerZ);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = stair;
+                    }
+                }
+            }
+
+            return nearest;
+        }
+
         function gameLoop() {
-            // Clear avec gradient sombre
             const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            gradient.addColorStop(0, '#0a0a0a');
-            gradient.addColorStop(1, '#1a1a1a');
+            gradient.addColorStop(0, '#0f0f0f');
+            gradient.addColorStop(1, '#1f1f1f');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             if (!game.player.isDead) {
                 // Mouvement du joueur
                 const moveX = (game.keys['d'] ? 1 : 0) - (game.keys['q'] ? 1 : 0);
-                const moveZ = (game.keys['s'] ? 1 : 0) - (game.keys['z'] ? 1 : 0);
+                const moveZ = (game.keys['z'] ? 1 : 0) - (game.keys['s'] ? 1 : 0);
 
                 if (moveX !== 0 || moveZ !== 0) {
                     const angle = Math.atan2(moveZ, moveX) + game.camera.yaw;
                     const newVX = Math.cos(angle) * game.moveSpeed;
                     const newVZ = Math.sin(angle) * game.moveSpeed;
                     
-                    // Tester collision avant de bouger
                     if (!checkWallCollision(game.player.x + newVX, game.player.z)) {
                         game.player.vx = newVX;
                     } else {
@@ -422,84 +430,116 @@
                     game.player.vz *= 0.8;
                 }
 
-                // Gravité
                 game.player.vy += game.gravity;
-                
-                // Mise à jour position
                 game.player.x += game.player.vx;
                 game.player.y += game.player.vy;
                 game.player.z += game.player.vz;
 
-                // Vérifier escaliers
-                const stairY = checkStairs(game.player.x, game.player.y, game.player.z);
-                if (stairY !== null) {
-                    if (game.player.y < stairY + 0.3) {
-                        game.player.y = stairY + 0.3;
+                // Vérifier escaliers pour le joueur
+                const stairHeight = getStairHeight(game.player.x, game.player.z, game.player.currentFloor);
+                
+                if (stairHeight !== null) {
+                    // Sur un escalier
+                    if (game.player.y < stairHeight) {
+                        game.player.y = stairHeight;
                         game.player.vy = 0;
                         game.player.isJumping = false;
                     }
+                    
+                    // Mettre à jour l'étage
+                    game.player.currentFloor = Math.round((game.player.y - 1.7) / FLOOR_HEIGHT);
                 } else {
-                    // Collision sol normal
-                    const currentFloor = Math.round(game.player.y / parkingStructure.floorHeight);
-                    const floorY = currentFloor * parkingStructure.floorHeight + 0.3;
+                    // Sol normal
+                    const floorY = game.player.currentFloor * FLOOR_HEIGHT + 1.7;
                     
                     if (game.player.y <= floorY) {
                         game.player.y = floorY;
                         game.player.vy = 0;
                         game.player.isJumping = false;
-                        game.player.floor = currentFloor;
+                    }
+                    
+                    // Empêcher de tomber à travers le sol
+                    if (game.player.y < floorY - 2) {
+                        game.player.currentFloor = Math.max(0, game.player.currentFloor - 1);
                     }
                 }
 
-                // Afficher l'étage actuel
-                document.getElementById('floorInfo').textContent = 
-                    `Étage: ${parkingStructure.floors[game.player.floor]?.name || game.player.floor}`;
+                document.getElementById('floorInfo').textContent = `Étage: ${game.player.currentFloor}`;
 
-                // Mise à jour nextbots
+                // IA des nextbots - INTELLIGENTE
                 for (let bot of game.nextbots) {
-                    const dx = game.player.x - bot.x;
-                    const dy = game.player.y - bot.y;
-                    const dz = game.player.z - bot.z;
-                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    const playerFloor = game.player.currentFloor;
                     
-                    if (dist > 0.5) {
-                        const newX = bot.x + (dx / dist) * bot.speed;
-                        const newZ = bot.z + (dz / dist) * bot.speed;
+                    // Si pas au même étage, aller vers les escaliers
+                    if (bot.currentFloor !== playerFloor) {
+                        const stairs = findNearestStairs(bot.x, bot.z, bot.currentFloor, 
+                            bot.currentFloor < playerFloor ? bot.currentFloor + 1 : bot.currentFloor - 1);
                         
-                        if (!checkWallCollision(newX, newZ)) {
-                            bot.x = newX;
-                            bot.z = newZ;
+                        if (stairs) {
+                            const centerZ = (stairs.zStart + stairs.zEnd) / 2;
+                            const dx = stairs.x - bot.x;
+                            const dz = centerZ - bot.z;
+                            const dist = Math.sqrt(dx * dx + dz * dz);
+                            
+                            if (dist > 0.5) {
+                                let newX = bot.x + (dx / dist) * bot.speed;
+                                let newZ = bot.z + (dz / dist) * bot.speed;
+                                
+                                if (!checkWallCollision(newX, newZ)) {
+                                    bot.x = newX;
+                                    bot.z = newZ;
+                                }
+                            }
+                        }
+                    } else {
+                        // Même étage - poursuivre directement
+                        const dx = game.player.x - bot.x;
+                        const dz = game.player.z - bot.z;
+                        const dist = Math.sqrt(dx * dx + dz * dz);
+                        
+                        if (dist > 0.5) {
+                            let newX = bot.x + (dx / dist) * bot.speed;
+                            let newZ = bot.z + (dz / dist) * bot.speed;
+                            
+                            if (checkWallCollision(newX, newZ)) {
+                                newX = bot.x + (dz / dist) * bot.speed;
+                                newZ = bot.z - (dx / dist) * bot.speed;
+                                
+                                if (checkWallCollision(newX, newZ)) {
+                                    newX = bot.x - (dz / dist) * bot.speed;
+                                    newZ = bot.z + (dx / dist) * bot.speed;
+                                }
+                            }
+                            
+                            if (!checkWallCollision(newX, newZ)) {
+                                bot.x = newX;
+                                bot.z = newZ;
+                            }
                         }
                     }
                     
-                    // Nextbot suit le joueur entre les étages
-                    const botStairY = checkStairs(bot.x, bot.y, bot.z);
-                    if (botStairY !== null) {
-                        bot.y = botStairY;
+                    // Mettre à jour hauteur du nextbot
+                    const botStairHeight = getStairHeight(bot.x, bot.z, bot.currentFloor);
+                    
+                    if (botStairHeight !== null) {
+                        bot.y = botStairHeight;
+                        bot.currentFloor = Math.round((bot.y - 1.7) / FLOOR_HEIGHT);
                     } else {
-                        const targetFloor = Math.round(game.player.y / parkingStructure.floorHeight);
-                        bot.y += (targetFloor * parkingStructure.floorHeight - bot.y) * 0.05;
+                        const targetY = bot.currentFloor * FLOOR_HEIGHT + 1.7;
+                        bot.y = targetY;
                     }
                 }
 
                 checkNextbotCollision();
             }
 
-            // Rendu 3D
             render3D();
-
             requestAnimationFrame(gameLoop);
         }
 
         function render3D() {
-            const fov = Math.PI / 3;
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-
-            // Dessiner le parking
             drawParking();
-
-            // Dessiner les nextbots (triés par distance)
+            
             const sortedBots = [...game.nextbots].sort((a, b) => {
                 const distA = Math.hypot(a.x - game.player.x, a.z - game.player.z);
                 const distB = Math.hypot(b.x - game.player.x, b.z - game.player.z);
@@ -512,95 +552,103 @@
         }
 
         function drawParking() {
-            // Sol avec texture béton
+            const currentFloor = game.player.currentFloor;
+            
+            // Sol
             ctx.fillStyle = '#2a2a2a';
-            for (let i = -5; i <= 5; i++) {
-                for (let j = -5; j <= 5; j++) {
-                    const corners = [
-                        [i * 5, game.player.floor * 4, j * 5],
-                        [(i + 1) * 5, game.player.floor * 4, j * 5],
-                        [(i + 1) * 5, game.player.floor * 4, (j + 1) * 5],
-                        [i * 5, game.player.floor * 4, (j + 1) * 5]
-                    ];
-                    drawQuad(corners, '#2a2a2a');
+            for (let i = -6; i <= 6; i++) {
+                for (let j = -6; j <= 6; j++) {
+                    const y = currentFloor * FLOOR_HEIGHT;
+                    drawFloorTile(i * 4, y, j * 4, 4);
                 }
             }
 
             // Plafond
-            for (let i = -5; i <= 5; i++) {
-                for (let j = -5; j <= 5; j++) {
-                    const corners = [
-                        [i * 5, game.player.floor * 4 + 3.5, j * 5],
-                        [(i + 1) * 5, game.player.floor * 4 + 3.5, j * 5],
-                        [(i + 1) * 5, game.player.floor * 4 + 3.5, (j + 1) * 5],
-                        [i * 5, game.player.floor * 4 + 3.5, (j + 1) * 5]
-                    ];
-                    drawQuad(corners, '#1a1a1a');
+            ctx.fillStyle = '#1a1a1a';
+            for (let i = -6; i <= 6; i++) {
+                for (let j = -6; j <= 6; j++) {
+                    const y = currentFloor * FLOOR_HEIGHT + 3.8;
+                    drawFloorTile(i * 4, y, j * 4, 4);
                 }
             }
 
-            // Piliers avec bandes jaunes
+            // Piliers
             for (let pillar of parkingStructure.pillars) {
-                drawPillar(pillar.x, game.player.floor * 4, pillar.z, pillar.w, 3.5, pillar.d);
+                drawPillar(pillar.x, currentFloor * FLOOR_HEIGHT, pillar.z);
             }
 
-            // Escaliers
+            // Escaliers - TOUS les escaliers visibles
             for (let stair of parkingStructure.stairs) {
-                drawStaircase(stair);
+                if (stair.fromFloor === currentFloor || stair.toFloor === currentFloor) {
+                    drawStairs(stair);
+                }
             }
 
-            // Lumières jaunes
-            ctx.fillStyle = 'rgba(255, 200, 0, 0.3)';
+            // Lumières
+            ctx.fillStyle = 'rgba(255, 200, 0, 0.25)';
             for (let i = -20; i <= 20; i += 10) {
                 for (let j = -20; j <= 20; j += 10) {
-                    const light = project3D(i, game.player.floor * 4 + 3.3, j);
+                    const light = project3D(i, currentFloor * FLOOR_HEIGHT + 3.5, j);
                     if (light) {
                         ctx.beginPath();
-                        ctx.arc(light.x, light.y, 30, 0, Math.PI * 2);
+                        ctx.arc(light.x, light.y, 25, 0, Math.PI * 2);
                         ctx.fill();
                     }
                 }
             }
         }
 
-        function drawPillar(x, y, z, w, h, d) {
-            // Corps du pilier gris
+        function drawFloorTile(x, y, z, size) {
             const corners = [
-                [x - w / 2, y, z - d / 2],
-                [x + w / 2, y, z - d / 2],
-                [x + w / 2, y + h, z - d / 2],
-                [x - w / 2, y + h, z - d / 2]
+                [x, y, z],
+                [x + size, y, z],
+                [x + size, y, z + size],
+                [x, y, z + size]
             ];
-            drawQuad(corners, '#555');
+            drawQuad(corners);
+        }
 
-            // Bandes jaunes et noires
-            for (let i = 0; i < 4; i++) {
-                const stripeY = y + (i * h / 4);
-                const stripeCorners = [
-                    [x - w / 2, stripeY, z - d / 2],
-                    [x + w / 2, stripeY, z - d / 2],
-                    [x + w / 2, stripeY + h / 8, z - d / 2],
-                    [x - w / 2, stripeY + h / 8, z - d / 2]
-                ];
-                drawQuad(stripeCorners, i % 2 === 0 ? '#ffcc00' : '#000');
+        function drawPillar(x, y, z) {
+            const h = 3.8;
+            const w = 0.6;
+            
+            drawQuad([
+                [x - w/2, y, z - w/2],
+                [x + w/2, y, z - w/2],
+                [x + w/2, y + h, z - w/2],
+                [x - w/2, y + h, z - w/2]
+            ], '#555');
+
+            for (let i = 0; i < 5; i++) {
+                const stripeY = y + (i * h / 5);
+                const color = i % 2 === 0 ? '#ffcc00' : '#000';
+                drawQuad([
+                    [x - w/2, stripeY, z - w/2],
+                    [x + w/2, stripeY, z - w/2],
+                    [x + w/2, stripeY + h/10, z - w/2],
+                    [x - w/2, stripeY + h/10, z - w/2]
+                ], color);
             }
         }
 
-        function drawStaircase(stair) {
-            const baseY = stair.floor * parkingStructure.floorHeight;
-            const steps = 12;
+        function drawStairs(stair) {
+            const steps = 20;
+            const minZ = Math.min(stair.zStart, stair.zEnd);
+            const maxZ = Math.max(stair.zStart, stair.zEnd);
+            const stepDepth = (maxZ - minZ) / steps;
             
             for (let i = 0; i < steps; i++) {
-                const stepY = baseY + (i / steps) * parkingStructure.floorHeight;
-                const stepZ = stair.z + (i - steps / 2) * 0.5 * stair.dir;
+                const stepZ = minZ + i * stepDepth;
+                const baseY = stair.fromFloor * FLOOR_HEIGHT;
+                const targetY = stair.toFloor * FLOOR_HEIGHT;
+                const stepY = baseY + (i / steps) * (targetY - baseY);
                 
-                const corners = [
-                    [stair.x - 2, stepY, stepZ],
-                    [stair.x + 2, stepY, stepZ],
-                    [stair.x + 2, stepY + 0.2, stepZ],
-                    [stair.x - 2, stepY + 0.2, stepZ]
-                ];
-                drawQuad(corners, '#666');
+                drawQuad([
+                    [stair.x - stair.width/2, stepY, stepZ],
+                    [stair.x + stair.width/2, stepY, stepZ],
+                    [stair.x + stair.width/2, stepY + 0.15, stepZ + stepDepth],
+                    [stair.x - stair.width/2, stepY + 0.15, stepZ + stepDepth]
+                ], '#666');
             }
         }
 
@@ -608,7 +656,7 @@
             const projected = corners.map(c => project3D(c[0], c[1], c[2]));
             
             if (projected.every(p => p)) {
-                ctx.fillStyle = color;
+                ctx.fillStyle = color || ctx.fillStyle;
                 ctx.beginPath();
                 ctx.moveTo(projected[0].x, projected[0].y);
                 for (let i = 1; i < projected.length; i++) {
@@ -621,7 +669,7 @@
 
         function drawNextbot(bot) {
             const dx = bot.x - game.player.x;
-            const dy = (bot.y + 0.5) - (game.player.y + game.player.height);
+            const dy = (bot.y - 0.85) - game.player.y;
             const dz = bot.z - game.player.z;
 
             const cosYaw = Math.cos(-game.camera.yaw);
@@ -634,24 +682,23 @@
             const cosPitch = Math.cos(-game.camera.pitch);
             const sinPitch = Math.sin(-game.camera.pitch);
             const ry = dy * cosPitch - rz * sinPitch;
-            const finalZ = dy * sinPitch + rz * cosPitch;
 
             const fov = Math.PI / 3;
             const scale = (canvas.width / 2) / Math.tan(fov / 2) / rz;
             const screenX = canvas.width / 2 + rx * scale;
             const screenY = canvas.height / 2 - ry * scale;
 
-            const size = 40 * scale; // Plus petit!
+            const size = 30 * scale;
 
             ctx.save();
-            ctx.globalAlpha = Math.min(1, 15 / rz);
-            ctx.drawImage(nextbotSprite, screenX - size / 2, screenY - size, size, size);
+            ctx.globalAlpha = Math.min(1, 20 / rz);
+            ctx.drawImage(nextbotSprite, screenX - size / 2, screenY - size, size, size * 1.2);
             ctx.restore();
         }
 
         function project3D(x, y, z) {
             const dx = x - game.player.x;
-            const dy = y - (game.player.y + game.player.height);
+            const dy = y - game.player.y;
             const dz = z - game.player.z;
 
             const cosYaw = Math.cos(-game.camera.yaw);
