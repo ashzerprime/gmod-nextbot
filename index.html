@@ -4,12 +4,188 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nextbot Parking 3D</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            background: #000;
+        }
+        #gameCanvas {
+            display: block;
+            cursor: none;
+        }
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #healthBar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 200px;
+            height: 30px;
+            background: rgba(0,0,0,0.8);
+            border: 3px solid #00ff00;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,255,0,0.5);
+        }
+        #healthFill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00);
+            transition: width 0.3s;
+        }
+        #healthText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+            font-size: 16px;
+        }
+        #menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.85);
+            padding: 20px;
+            border-radius: 10px;
+            color: #0f0;
+            pointer-events: all;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 20px rgba(0,255,0,0.3);
+        }
+        #menu h3 {
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px #0f0;
+        }
+        .spawn-btn {
+            display: block;
+            width: 150px;
+            margin: 10px 0;
+            padding: 10px;
+            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+            color: #0f0;
+            border: 2px solid #0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #0f0;
+            transition: all 0.2s;
+        }
+        .spawn-btn:hover {
+            background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+            box-shadow: 0 0 15px rgba(0,255,0,0.5);
+        }
+        .spawn-btn:active {
+            transform: scale(0.95);
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 40px;
+            border-radius: 10px;
+            color: #fff;
+            text-align: center;
+            display: none;
+            pointer-events: all;
+            border: 3px solid #f00;
+            box-shadow: 0 0 30px rgba(255,0,0,0.5);
+        }
+        #gameOver h1 {
+            font-size: 48px;
+            color: #ff0000;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #f00;
+        }
+        #gameOver p {
+            font-size: 24px;
+        }
+        #restartBtn {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+            color: #0f0;
+            border: 2px solid #0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.2s;
+        }
+        #restartBtn:hover {
+            box-shadow: 0 0 15px rgba(0,255,0,0.5);
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0,255,0,0.7);
+            box-shadow: 0 0 5px #0f0;
+        }
+        #crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 9px;
+        }
+        #crosshair::after {
+            width: 20px;
+            height: 2px;
+            top: 9px;
+        }
+        #floorInfo {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #0f0;
+            font-size: 18px;
+            text-shadow: 0 0 10px #0f0;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 5px;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 10px rgba(0,255,0,0.3);
+        }
+        #speedInfo {
+            position: absolute;
+            bottom: 60px;
+            left: 20px;
+            color: #ff0;
+            font-size: 14px;
+            text-shadow: 0 0 5px #ff0;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+    </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="ui">
-        <div id="floorInfo">Étage: 0</div>
+        <div id="floorInfo">ÉTAGE: 0</div>
+        <div id="speedInfo">VITESSE: 0</div>
         <div id="healthBar">
             <div id="healthFill"></div>
             <div id="healthText">100</div>
@@ -27,6 +203,470 @@
             <button id="restartBtn">RECOMMENCER</button>
         </div>
     </div>
-    <script src="game.js"></script>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const FLOOR_HEIGHT = 6;
+        const NUM_FLOORS = 3;
+
+        const game = {
+            player: {
+                x: 0,
+                y: 1.8,
+                z: 0,
+                vx: 0,
+                vy: 0,
+                vz: 0,
+                height: 1.8,
+                radius: 0.5,
+                health: 100,
+                isDead: false,
+                onGround: true,
+                currentFloor: 0
+            },
+            camera: {
+                pitch: 0,
+                yaw: 0
+            },
+            keys: {},
+            nextbots: [],
+            gravity: -0.025,
+            jumpForce: 0.45,
+            moveSpeed: 0.25,
+            airControl: 0.15,
+            friction: 0.85,
+            airFriction: 0.98
+        };
+
+        const parking = {
+            pillars: [],
+            stairs: [
+                {x: 20, z: 18, width: 5, depth: 8, floor: 0},
+                {x: 20, z: 18, width: 5, depth: 8, floor: 1},
+                {x: -20, z: -18, width: 5, depth: 8, floor: 0},
+                {x: -20, z: -18, width: 5, depth: 8, floor: 1}
+            ]
+        };
+
+        for (let x = -20; x <= 20; x += 10) {
+            for (let z = -20; z <= 20; z += 10) {
+                if ((Math.abs(x) > 5 || Math.abs(z) > 5) && 
+                    !(Math.abs(x - 20) < 4 && Math.abs(z - 18) < 5) &&
+                    !(Math.abs(x + 20) < 4 && Math.abs(z + 18) < 5)) {
+                    parking.pillars.push({x, z, w: 1, d: 1});
+                }
+            }
+        }
+
+        const nextbotImages = [];
+        ['#8B0000', '#2a2a2a', '#1a1a1a'].forEach((color, i) => {
+            const img = new Image();
+            img.src = 'data:image/svg+xml,' + encodeURIComponent(`
+                <svg width="100" height="120" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="50" cy="60" rx="42" ry="55" fill="${color}"/>
+                    <ellipse cx="32" cy="48" rx="11" ry="16" fill="#fff"/>
+                    <ellipse cx="68" cy="48" rx="11" ry="16" fill="#fff"/>
+                    <circle cx="32" cy="48" r="7" fill="#000"/>
+                    <circle cx="68" cy="48" r="7" fill="#000"/>
+                    <path d="M 28 75 Q 50 88 72 75" stroke="#000" stroke-width="5" fill="none"/>
+                    <ellipse cx="29" cy="45" rx="3" ry="4" fill="#fff" opacity="0.6"/>
+                    <ellipse cx="65" cy="45" rx="3" ry="4" fill="#fff" opacity="0.6"/>
+                </svg>
+            `);
+            nextbotImages.push(img);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            game.keys[e.key.toLowerCase()] = true;
+            if (e.code === 'Space' && game.player.onGround && !game.player.isDead) {
+                game.player.vy = game.jumpForce;
+                game.player.onGround = false;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            game.keys[e.key.toLowerCase()] = false;
+        });
+
+        canvas.addEventListener('click', () => canvas.requestPointerLock());
+
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === canvas) {
+                game.camera.yaw += e.movementX * 0.002;
+                game.camera.pitch -= e.movementY * 0.002;
+                game.camera.pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, game.camera.pitch));
+            }
+        });
+
+        document.querySelectorAll('.spawn-btn').forEach(btn => {
+            btn.addEventListener('click', () => spawnNextbot(btn.dataset.type));
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+        function spawnNextbot(type) {
+            if (game.player.isDead) return;
+            const speeds = {'speed': 0.12, 'medium': 0.07, 'low': 0.035};
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 15 + Math.random() * 10;
+            
+            game.nextbots.push({
+                x: game.player.x + Math.cos(angle) * distance,
+                y: game.player.currentFloor * FLOOR_HEIGHT + 1.8,
+                z: game.player.z + Math.sin(angle) * distance,
+                speed: speeds[type],
+                currentFloor: game.player.currentFloor,
+                imageIndex: Math.floor(Math.random() * 3)
+            });
+        }
+
+        function checkWallCollision(x, z) {
+            if (x < -28 || x > 28 || z < -28 || z > 28) return true;
+            for (let p of parking.pillars) {
+                if (Math.abs(x - p.x) < p.w/2 + 0.5 && Math.abs(z - p.z) < p.d/2 + 0.5) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function getFloorAtPosition(x, z, y) {
+            for (let stair of parking.stairs) {
+                if (Math.abs(x - stair.x) < stair.width/2 && 
+                    Math.abs(z - stair.z) < stair.depth/2) {
+                    const localZ = z - (stair.z - stair.depth/2);
+                    const progress = localZ / stair.depth;
+                    if (progress >= 0 && progress <= 1) {
+                        const baseY = stair.floor * FLOOR_HEIGHT;
+                        const targetY = (stair.floor + 1) * FLOOR_HEIGHT;
+                        return baseY + progress * (targetY - baseY);
+                    }
+                }
+            }
+            const floor = Math.max(0, Math.min(NUM_FLOORS - 1, Math.round(y / FLOOR_HEIGHT)));
+            return floor * FLOOR_HEIGHT;
+        }
+
+        function checkNextbotCollision() {
+            for (let bot of game.nextbots) {
+                const dx = game.player.x - bot.x;
+                const dz = game.player.z - bot.z;
+                const dist = Math.sqrt(dx*dx + dz*dz);
+                if (dist < 1.2 && Math.abs(game.player.y - bot.y) < 2) {
+                    game.player.health = 0;
+                    updateHealth();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function updateHealth() {
+            document.getElementById('healthFill').style.width = game.player.health + '%';
+            document.getElementById('healthText').textContent = Math.floor(game.player.health);
+            if (game.player.health <= 0 && !game.player.isDead) {
+                game.player.isDead = true;
+                document.getElementById('gameOver').style.display = 'block';
+            }
+        }
+
+        function restartGame() {
+            game.player = {
+                x: 0, y: 1.8, z: 0, vx: 0, vy: 0, vz: 0,
+                height: 1.8, radius: 0.5, health: 100,
+                isDead: false, onGround: true, currentFloor: 0
+            };
+            game.nextbots = [];
+            game.camera.pitch = 0;
+            game.camera.yaw = 0;
+            document.getElementById('gameOver').style.display = 'none';
+            updateHealth();
+        }
+
+        function gameLoop() {
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#050505');
+            grad.addColorStop(1, '#0a0a0a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!game.player.isDead) {
+                const moveX = (game.keys['d'] ? 1 : 0) - (game.keys['q'] ? 1 : 0);
+                const moveZ = (game.keys['z'] ? 1 : 0) - (game.keys['s'] ? 1 : 0);
+
+                const speed = game.player.onGround ? game.moveSpeed : game.airControl;
+                
+                if (moveX !== 0 || moveZ !== 0) {
+                    const angle = Math.atan2(moveZ, moveX) + game.camera.yaw;
+                    const targetVX = Math.cos(angle) * speed;
+                    const targetVZ = Math.sin(angle) * speed;
+                    
+                    game.player.vx += (targetVX - game.player.vx) * 0.3;
+                    game.player.vz += (targetVZ - game.player.vz) * 0.3;
+                }
+
+                const friction = game.player.onGround ? game.friction : game.airFriction;
+                game.player.vx *= friction;
+                game.player.vz *= friction;
+
+                game.player.vy += game.gravity;
+
+                let newX = game.player.x + game.player.vx;
+                let newZ = game.player.z + game.player.vz;
+
+                if (!checkWallCollision(newX, game.player.z)) {
+                    game.player.x = newX;
+                }
+                if (!checkWallCollision(game.player.x, newZ)) {
+                    game.player.z = newZ;
+                }
+
+                game.player.y += game.player.vy;
+
+                const targetFloorY = getFloorAtPosition(game.player.x, game.player.z, game.player.y);
+                
+                if (game.player.y <= targetFloorY + 1.8) {
+                    game.player.y = targetFloorY + 1.8;
+                    game.player.vy = 0;
+                    game.player.onGround = true;
+                    game.player.currentFloor = Math.round(targetFloorY / FLOOR_HEIGHT);
+                } else {
+                    game.player.onGround = false;
+                }
+
+                const speed2D = Math.sqrt(game.player.vx**2 + game.player.vz**2);
+                document.getElementById('speedInfo').textContent = `VITESSE: ${Math.round(speed2D * 100)}`;
+                document.getElementById('floorInfo').textContent = `ÉTAGE: ${game.player.currentFloor}`;
+
+                for (let bot of game.nextbots) {
+                    const dx = game.player.x - bot.x;
+                    const dz = game.player.z - bot.z;
+                    const dist = Math.sqrt(dx*dx + dz*dz);
+                    
+                    if (dist > 0.5) {
+                        let newX = bot.x + (dx/dist) * bot.speed;
+                        let newZ = bot.z + (dz/dist) * bot.speed;
+                        
+                        if (checkWallCollision(newX, newZ)) {
+                            newX = bot.x + (dz/dist) * bot.speed;
+                            newZ = bot.z - (dx/dist) * bot.speed;
+                        }
+                        
+                        if (!checkWallCollision(newX, newZ)) {
+                            bot.x = newX;
+                            bot.z = newZ;
+                        }
+                    }
+                    
+                    const botFloorY = getFloorAtPosition(bot.x, bot.z, bot.y);
+                    bot.y = botFloorY + 1.8;
+                    bot.currentFloor = Math.round(botFloorY / FLOOR_HEIGHT);
+                }
+
+                checkNextbotCollision();
+            }
+
+            render3D();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function render3D() {
+            drawParking();
+            
+            const sorted = [...game.nextbots].sort((a,b) => {
+                const dA = Math.hypot(a.x - game.player.x, a.z - game.player.z);
+                const dB = Math.hypot(b.x - game.player.x, b.z - game.player.z);
+                return dB - dA;
+            });
+
+            for (let bot of sorted) {
+                drawShadow(bot.x, bot.z, bot.currentFloor);
+                drawNextbot(bot);
+            }
+        }
+
+        function drawParking() {
+            const cf = game.player.currentFloor;
+            
+            ctx.fillStyle = '#1a1a1a';
+            for (let i = -8; i <= 8; i++) {
+                for (let j = -8; j <= 8; j++) {
+                    const shade = ((i+j) % 2) * 10;
+                    drawQuad([
+                        [i*3.5, cf*FLOOR_HEIGHT, j*3.5],
+                        [(i+1)*3.5, cf*FLOOR_HEIGHT, j*3.5],
+                        [(i+1)*3.5, cf*FLOOR_HEIGHT, (j+1)*3.5],
+                        [i*3.5, cf*FLOOR_HEIGHT, (j+1)*3.5]
+                    ], `rgb(${26+shade},${26+shade},${26+shade})`);
+                }
+            }
+
+            ctx.fillStyle = '#0d0d0d';
+            for (let i = -8; i <= 8; i++) {
+                for (let j = -8; j <= 8; j++) {
+                    drawQuad([
+                        [i*3.5, cf*FLOOR_HEIGHT + 5.5, j*3.5],
+                        [(i+1)*3.5, cf*FLOOR_HEIGHT + 5.5, j*3.5],
+                        [(i+1)*3.5, cf*FLOOR_HEIGHT + 5.5, (j+1)*3.5],
+                        [i*3.5, cf*FLOOR_HEIGHT + 5.5, (j+1)*3.5]
+                    ], '#0d0d0d');
+                }
+            }
+
+            for (let p of parking.pillars) {
+                drawPillar3D(p.x, cf*FLOOR_HEIGHT, p.z, p.w, 5.5, p.d);
+            }
+
+            for (let stair of parking.stairs) {
+                if (stair.floor === cf) {
+                    drawStaircase(stair);
+                }
+            }
+
+            ctx.fillStyle = 'rgba(255,220,100,0.15)';
+            for (let i = -25; i <= 25; i += 12) {
+                for (let j = -25; j <= 25; j += 12) {
+                    const light = project3D(i, cf*FLOOR_HEIGHT + 5.2, j);
+                    if (light) {
+                        const grad = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, 40);
+                        grad.addColorStop(0, 'rgba(255,220,100,0.3)');
+                        grad.addColorStop(1, 'rgba(255,220,100,0)');
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.arc(light.x, light.y, 40, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
+            }
+        }
+
+        function drawPillar3D(x, y, z, w, h, d) {
+            const faces = [
+                [[x-w/2,y,z-d/2], [x+w/2,y,z-d/2], [x+w/2,y+h,z-d/2], [x-w/2,y+h,z-d/2]],
+                [[x+w/2,y,z-d/2], [x+w/2,y,z+d/2], [x+w/2,y+h,z+d/2], [x+w/2,y+h,z-d/2]],
+                [[x+w/2,y,z+d/2], [x-w/2,y,z+d/2], [x-w/2,y+h,z+d/2], [x+w/2,y+h,z+d/2]],
+                [[x-w/2,y,z+d/2], [x-w/2,y,z-d/2], [x-w/2,y+h,z-d/2], [x-w/2,y+h,z+d/2]]
+            ];
+            
+            faces.forEach((face, i) => {
+                const baseColor = i % 2 === 0 ? 60 : 50;
+                drawQuad(face, `rgb(${baseColor},${baseColor},${baseColor})`);
+                
+                for (let s = 0; s < 6; s++) {
+                    const sy = y + (s * h / 6);
+                    const color = s % 2 === 0 ? '#ffcc00' : '#000';
+                    const stripe = [
+                        [face[0][0], sy, face[0][2]],
+                        [face[1][0], sy, face[1][2]],
+                        [face[1][0], sy + h/12, face[1][2]],
+                        [face[0][0], sy + h/12, face[0][2]]
+                    ];
+                    drawQuad(stripe, color);
+                }
+            });
+        }
+
+        function drawStaircase(stair) {
+            const steps = 25;
+            const baseY = stair.floor * FLOOR_HEIGHT;
+            const targetY = (stair.floor + 1) * FLOOR_HEIGHT;
+            
+            for (let i = 0; i < steps; i++) {
+                const stepZ = stair.z - stair.depth/2 + (i/steps) * stair.depth;
+                const stepY = baseY + (i/steps) * (targetY - baseY);
+                
+                drawQuad([
+                    [stair.x - stair.width/2, stepY, stepZ],
+                    [stair.x + stair.width/2, stepY, stepZ],
+                    [stair.x + stair.width/2, stepY + 0.2, stepZ + stair.depth/steps],
+                    [stair.x - stair.width/2, stepY + 0.2, stepZ + stair.depth/steps]
+                ], '#4a4a4a');
+            }
+        }
+
+        function drawShadow(x, z, floor) {
+            const y = floor * FLOOR_HEIGHT + 0.01;
+            const p = project3D(x, y, z);
+            if (p) {
+                const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 30);
+                grad.addColorStop(0, 'rgba(0,0,0,0.6)');
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 30, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function drawQuad(corners, color) {
+            const proj = corners.map(c => project3D(c[0], c[1], c[2]));
+            if (proj.every(p => p)) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(proj[0].x, proj[0].y);
+                proj.forEach((p, i) => i > 0 && ctx.lineTo(p.x, p.y));
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        function drawNextbot(bot) {
+            const dx = bot.x - game.player.x;
+            const dy = (bot.y - 0.9) - game.player.y;
+            const dz = bot.z - game.player.z;
+
+            const cosY = Math.cos(-game.camera.yaw);
+            const sinY = Math.sin(-game.camera.yaw);
+            const rx = dx*cosY - dz*sinY;
+            const rz = dx*sinY + dz*cosY;
+
+            if (rz <= 0.1) return;
+
+            const cosP = Math.cos(-game.camera.pitch);
+            const sinP = Math.sin(-game.camera.pitch);
+            const ry = dy*cosP - rz*sinP;
+
+            const scale = (canvas.width/2) / Math.tan(Math.PI/3/2) / rz;
+            const sx = canvas.width/2 + rx*scale;
+            const sy = canvas.height/2 - ry*scale;
+            const size = 35 * scale;
+
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, 25/rz);
+            ctx.drawImage(nextbotImages[bot.imageIndex], sx-size/2, sy-size, size, size*1.2);
+            ctx.restore();
+        }
+
+        function project3D(x, y, z) {
+            const dx = x - game.player.x;
+            const dy = y - game.player.y;
+            const dz = z - game.player.z;
+
+            const cosY = Math.cos(-game.camera.yaw);
+            const sinY = Math.sin(-game.camera.yaw);
+            const rx = dx*cosY - dz*sinY;
+            const rz = dx*sinY + dz*cosY;
+
+            if (rz <= 0.1) return null;
+
+            const cosP = Math.cos(-game.camera.pitch);
+            const sinP = Math.sin(-game.camera.pitch);
+            const ry = dy*cosP - rz*sinP;
+
+            const scale = (canvas.width/2) / Math.tan(Math.PI/3/2) / rz;
+            return {x: canvas.width/2 + rx*scale, y: canvas.height/2 - ry*scale};
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        gameLoop();
+    </script>
 </body>
 </html>
