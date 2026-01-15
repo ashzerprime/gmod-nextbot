@@ -17,7 +17,6 @@
         }
         #gameCanvas {
             display: block;
-            cursor: none;
         }
         #ui {
             position: absolute;
@@ -90,9 +89,6 @@
             background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
             box-shadow: 0 0 15px rgba(0,255,0,0.5);
         }
-        .spawn-btn:active {
-            transform: scale(0.95);
-        }
         #gameOver {
             position: absolute;
             top: 50%;
@@ -114,9 +110,6 @@
             margin-bottom: 20px;
             text-shadow: 0 0 20px #f00;
         }
-        #gameOver p {
-            font-size: 24px;
-        }
         #restartBtn {
             padding: 15px 30px;
             font-size: 18px;
@@ -126,10 +119,6 @@
             border-radius: 5px;
             cursor: pointer;
             margin-top: 20px;
-            transition: all 0.2s;
-        }
-        #restartBtn:hover {
-            box-shadow: 0 0 15px rgba(0,255,0,0.5);
         }
         #crosshair {
             position: absolute;
@@ -166,18 +155,6 @@
             padding: 10px;
             border-radius: 5px;
             border: 2px solid #0f0;
-            box-shadow: 0 0 10px rgba(0,255,0,0.3);
-        }
-        #speedInfo {
-            position: absolute;
-            bottom: 60px;
-            left: 20px;
-            color: #ff0;
-            font-size: 14px;
-            text-shadow: 0 0 5px #ff0;
-            background: rgba(0,0,0,0.7);
-            padding: 5px 10px;
-            border-radius: 3px;
         }
     </style>
 </head>
@@ -185,7 +162,6 @@
     <canvas id="gameCanvas"></canvas>
     <div id="ui">
         <div id="floorInfo">ÉTAGE: 0</div>
-        <div id="speedInfo">VITESSE: 0</div>
         <div id="healthBar">
             <div id="healthFill"></div>
             <div id="healthText">100</div>
@@ -211,7 +187,6 @@
         canvas.height = window.innerHeight;
 
         const FLOOR_HEIGHT = 6;
-        const NUM_FLOORS = 3;
 
         const game = {
             player: {
@@ -234,21 +209,19 @@
             },
             keys: {},
             nextbots: [],
-            gravity: -0.025,
-            jumpForce: 0.45,
-            moveSpeed: 0.25,
-            airControl: 0.15,
-            friction: 0.85,
-            airFriction: 0.98
+            gravity: -0.03,
+            jumpForce: 0.5,
+            moveSpeed: 0.3,
+            friction: 0.88
         };
 
         const parking = {
             pillars: [],
             stairs: [
-                {x: 20, z: 18, width: 5, depth: 8, floor: 0},
-                {x: 20, z: 18, width: 5, depth: 8, floor: 1},
-                {x: -20, z: -18, width: 5, depth: 8, floor: 0},
-                {x: -20, z: -18, width: 5, depth: 8, floor: 1}
+                {x: 20, z: 18, floor: 0},
+                {x: 20, z: 18, floor: 1},
+                {x: -20, z: -18, floor: 0},
+                {x: -20, z: -18, floor: 1}
             ]
         };
 
@@ -263,20 +236,14 @@
         }
 
         const nextbotImages = [];
-        ['#8B0000', '#2a2a2a', '#1a1a1a'].forEach((color, i) => {
+        const imageUrls = [
+            'data:image/jpeg;base64,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',
+            'data:image/jpeg;base64,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'
+        ];
+
+        imageUrls.forEach((url, i) => {
             const img = new Image();
-            img.src = 'data:image/svg+xml,' + encodeURIComponent(`
-                <svg width="100" height="120" xmlns="http://www.w3.org/2000/svg">
-                    <ellipse cx="50" cy="60" rx="42" ry="55" fill="${color}"/>
-                    <ellipse cx="32" cy="48" rx="11" ry="16" fill="#fff"/>
-                    <ellipse cx="68" cy="48" rx="11" ry="16" fill="#fff"/>
-                    <circle cx="32" cy="48" r="7" fill="#000"/>
-                    <circle cx="68" cy="48" r="7" fill="#000"/>
-                    <path d="M 28 75 Q 50 88 72 75" stroke="#000" stroke-width="5" fill="none"/>
-                    <ellipse cx="29" cy="45" rx="3" ry="4" fill="#fff" opacity="0.6"/>
-                    <ellipse cx="65" cy="45" rx="3" ry="4" fill="#fff" opacity="0.6"/>
-                </svg>
-            `);
+            img.src = url;
             nextbotImages.push(img);
         });
 
@@ -296,7 +263,7 @@
 
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement === canvas) {
-                game.camera.yaw += e.movementX * 0.002;
+                game.camera.yaw -= e.movementX * 0.002;
                 game.camera.pitch -= e.movementY * 0.002;
                 game.camera.pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, game.camera.pitch));
             }
@@ -310,7 +277,7 @@
 
         function spawnNextbot(type) {
             if (game.player.isDead) return;
-            const speeds = {'speed': 0.12, 'medium': 0.07, 'low': 0.035};
+            const speeds = {'speed': 0.15, 'medium': 0.08, 'low': 0.04};
             const angle = Math.random() * Math.PI * 2;
             const distance = 15 + Math.random() * 10;
             
@@ -320,7 +287,7 @@
                 z: game.player.z + Math.sin(angle) * distance,
                 speed: speeds[type],
                 currentFloor: game.player.currentFloor,
-                imageIndex: Math.floor(Math.random() * 3)
+                imageIndex: Math.floor(Math.random() * nextbotImages.length)
             });
         }
 
@@ -334,21 +301,17 @@
             return false;
         }
 
-        function getFloorAtPosition(x, z, y) {
+        function getFloorAtPosition(x, z, currentFloor) {
             for (let stair of parking.stairs) {
-                if (Math.abs(x - stair.x) < stair.width/2 && 
-                    Math.abs(z - stair.z) < stair.depth/2) {
-                    const localZ = z - (stair.z - stair.depth/2);
-                    const progress = localZ / stair.depth;
+                if (Math.abs(x - stair.x) < 4 && Math.abs(z - stair.z) < 6) {
+                    const zDiff = z - stair.z;
+                    const progress = (zDiff + 6) / 12;
                     if (progress >= 0 && progress <= 1) {
-                        const baseY = stair.floor * FLOOR_HEIGHT;
-                        const targetY = (stair.floor + 1) * FLOOR_HEIGHT;
-                        return baseY + progress * (targetY - baseY);
+                        return stair.floor * FLOOR_HEIGHT + progress * FLOOR_HEIGHT;
                     }
                 }
             }
-            const floor = Math.max(0, Math.min(NUM_FLOORS - 1, Math.round(y / FLOOR_HEIGHT)));
-            return floor * FLOOR_HEIGHT;
+            return currentFloor * FLOOR_HEIGHT;
         }
 
         function checkNextbotCollision() {
@@ -398,21 +361,14 @@
                 const moveX = (game.keys['d'] ? 1 : 0) - (game.keys['q'] ? 1 : 0);
                 const moveZ = (game.keys['z'] ? 1 : 0) - (game.keys['s'] ? 1 : 0);
 
-                const speed = game.player.onGround ? game.moveSpeed : game.airControl;
-                
                 if (moveX !== 0 || moveZ !== 0) {
-                    const angle = Math.atan2(moveZ, moveX) + game.camera.yaw;
-                    const targetVX = Math.cos(angle) * speed;
-                    const targetVZ = Math.sin(angle) * speed;
-                    
-                    game.player.vx += (targetVX - game.player.vx) * 0.3;
-                    game.player.vz += (targetVZ - game.player.vz) * 0.3;
+                    const angle = Math.atan2(moveZ, moveX) - game.camera.yaw;
+                    game.player.vx += Math.cos(angle) * game.moveSpeed * 0.3;
+                    game.player.vz += Math.sin(angle) * game.moveSpeed * 0.3;
                 }
 
-                const friction = game.player.onGround ? game.friction : game.airFriction;
-                game.player.vx *= friction;
-                game.player.vz *= friction;
-
+                game.player.vx *= game.friction;
+                game.player.vz *= game.friction;
                 game.player.vy += game.gravity;
 
                 let newX = game.player.x + game.player.vx;
@@ -427,7 +383,7 @@
 
                 game.player.y += game.player.vy;
 
-                const targetFloorY = getFloorAtPosition(game.player.x, game.player.z, game.player.y);
+                const targetFloorY = getFloorAtPosition(game.player.x, game.player.z, game.player.currentFloor);
                 
                 if (game.player.y <= targetFloorY + 1.8) {
                     game.player.y = targetFloorY + 1.8;
@@ -438,8 +394,6 @@
                     game.player.onGround = false;
                 }
 
-                const speed2D = Math.sqrt(game.player.vx**2 + game.player.vz**2);
-                document.getElementById('speedInfo').textContent = `VITESSE: ${Math.round(speed2D * 100)}`;
                 document.getElementById('floorInfo').textContent = `ÉTAGE: ${game.player.currentFloor}`;
 
                 for (let bot of game.nextbots) {
@@ -451,18 +405,13 @@
                         let newX = bot.x + (dx/dist) * bot.speed;
                         let newZ = bot.z + (dz/dist) * bot.speed;
                         
-                        if (checkWallCollision(newX, newZ)) {
-                            newX = bot.x + (dz/dist) * bot.speed;
-                            newZ = bot.z - (dx/dist) * bot.speed;
-                        }
-                        
                         if (!checkWallCollision(newX, newZ)) {
                             bot.x = newX;
                             bot.z = newZ;
                         }
                     }
                     
-                    const botFloorY = getFloorAtPosition(bot.x, bot.z, bot.y);
+                    const botFloorY = getFloorAtPosition(bot.x, bot.z, bot.currentFloor);
                     bot.y = botFloorY + 1.8;
                     bot.currentFloor = Math.round(botFloorY / FLOOR_HEIGHT);
                 }
@@ -484,7 +433,6 @@
             });
 
             for (let bot of sorted) {
-                drawShadow(bot.x, bot.z, bot.currentFloor);
                 drawNextbot(bot);
             }
         }
@@ -505,20 +453,8 @@
                 }
             }
 
-            ctx.fillStyle = '#0d0d0d';
-            for (let i = -8; i <= 8; i++) {
-                for (let j = -8; j <= 8; j++) {
-                    drawQuad([
-                        [i*3.5, cf*FLOOR_HEIGHT + 5.5, j*3.5],
-                        [(i+1)*3.5, cf*FLOOR_HEIGHT + 5.5, j*3.5],
-                        [(i+1)*3.5, cf*FLOOR_HEIGHT + 5.5, (j+1)*3.5],
-                        [i*3.5, cf*FLOOR_HEIGHT + 5.5, (j+1)*3.5]
-                    ], '#0d0d0d');
-                }
-            }
-
             for (let p of parking.pillars) {
-                drawPillar3D(p.x, cf*FLOOR_HEIGHT, p.z, p.w, 5.5, p.d);
+                drawPillar3D(p.x, cf*FLOOR_HEIGHT, p.z);
             }
 
             for (let stair of parking.stairs) {
@@ -526,48 +462,29 @@
                     drawStaircase(stair);
                 }
             }
-
-            ctx.fillStyle = 'rgba(255,220,100,0.15)';
-            for (let i = -25; i <= 25; i += 12) {
-                for (let j = -25; j <= 25; j += 12) {
-                    const light = project3D(i, cf*FLOOR_HEIGHT + 5.2, j);
-                    if (light) {
-                        const grad = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, 40);
-                        grad.addColorStop(0, 'rgba(255,220,100,0.3)');
-                        grad.addColorStop(1, 'rgba(255,220,100,0)');
-                        ctx.fillStyle = grad;
-                        ctx.beginPath();
-                        ctx.arc(light.x, light.y, 40, 0, Math.PI*2);
-                        ctx.fill();
-                    }
-                }
-            }
         }
 
-        function drawPillar3D(x, y, z, w, h, d) {
-            const faces = [
-                [[x-w/2,y,z-d/2], [x+w/2,y,z-d/2], [x+w/2,y+h,z-d/2], [x-w/2,y+h,z-d/2]],
-                [[x+w/2,y,z-d/2], [x+w/2,y,z+d/2], [x+w/2,y+h,z+d/2], [x+w/2,y+h,z-d/2]],
-                [[x+w/2,y,z+d/2], [x-w/2,y,z+d/2], [x-w/2,y+h,z+d/2], [x+w/2,y+h,z+d/2]],
-                [[x-w/2,y,z+d/2], [x-w/2,y,z-d/2], [x-w/2,y+h,z-d/2], [x-w/2,y+h,z+d/2]]
-            ];
+        function drawPillar3D(x, y, z) {
+            const h = 5.5;
+            const w = 1;
             
-            faces.forEach((face, i) => {
-                const baseColor = i % 2 === 0 ? 60 : 50;
-                drawQuad(face, `rgb(${baseColor},${baseColor},${baseColor})`);
-                
-                for (let s = 0; s < 6; s++) {
-                    const sy = y + (s * h / 6);
-                    const color = s % 2 === 0 ? '#ffcc00' : '#000';
-                    const stripe = [
-                        [face[0][0], sy, face[0][2]],
-                        [face[1][0], sy, face[1][2]],
-                        [face[1][0], sy + h/12, face[1][2]],
-                        [face[0][0], sy + h/12, face[0][2]]
-                    ];
-                    drawQuad(stripe, color);
-                }
-            });
+            drawQuad([
+                [x-w/2, y, z-w/2],
+                [x+w/2, y, z-w/2],
+                [x+w/2, y+h, z-w/2],
+                [x-w/2, y+h, z-w/2]
+            ], '#555');
+
+            for (let s = 0; s < 6; s++) {
+                const sy = y + (s * h / 6);
+                const color = s % 2 === 0 ? '#ffcc00' : '#000';
+                drawQuad([
+                    [x-w/2, sy, z-w/2],
+                    [x+w/2, sy, z-w/2],
+                    [x+w/2, sy + h/12, z-w/2],
+                    [x-w/2, sy + h/12, z-w/2]
+                ], color);
+            }
         }
 
         function drawStaircase(stair) {
@@ -576,29 +493,15 @@
             const targetY = (stair.floor + 1) * FLOOR_HEIGHT;
             
             for (let i = 0; i < steps; i++) {
-                const stepZ = stair.z - stair.depth/2 + (i/steps) * stair.depth;
+                const stepZ = stair.z - 6 + (i/steps) * 12;
                 const stepY = baseY + (i/steps) * (targetY - baseY);
                 
                 drawQuad([
-                    [stair.x - stair.width/2, stepY, stepZ],
-                    [stair.x + stair.width/2, stepY, stepZ],
-                    [stair.x + stair.width/2, stepY + 0.2, stepZ + stair.depth/steps],
-                    [stair.x - stair.width/2, stepY + 0.2, stepZ + stair.depth/steps]
+                    [stair.x - 2, stepY, stepZ],
+                    [stair.x + 2, stepY, stepZ],
+                    [stair.x + 2, stepY + 0.2, stepZ + 12/steps],
+                    [stair.x - 2, stepY + 0.2, stepZ + 12/steps]
                 ], '#4a4a4a');
-            }
-        }
-
-        function drawShadow(x, z, floor) {
-            const y = floor * FLOOR_HEIGHT + 0.01;
-            const p = project3D(x, y, z);
-            if (p) {
-                const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 30);
-                grad.addColorStop(0, 'rgba(0,0,0,0.6)');
-                grad.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = grad;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 30, 0, Math.PI*2);
-                ctx.fill();
             }
         }
 
@@ -619,8 +522,8 @@
             const dy = (bot.y - 0.9) - game.player.y;
             const dz = bot.z - game.player.z;
 
-            const cosY = Math.cos(-game.camera.yaw);
-            const sinY = Math.sin(-game.camera.yaw);
+            const cosY = Math.cos(game.camera.yaw);
+            const sinY = Math.sin(game.camera.yaw);
             const rx = dx*cosY - dz*sinY;
             const rz = dx*sinY + dz*cosY;
 
@@ -646,8 +549,8 @@
             const dy = y - game.player.y;
             const dz = z - game.player.z;
 
-            const cosY = Math.cos(-game.camera.yaw);
-            const sinY = Math.sin(-game.camera.yaw);
+            const cosY = Math.cos(game.camera.yaw);
+            const sinY = Math.sin(game.camera.yaw);
             const rx = dx*cosY - dz*sinY;
             const rz = dx*sinY + dz*cosY;
 
